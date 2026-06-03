@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>もぐログ - ポジティブ食体験共有＆コレクション</title>
+  <meta name="theme-color" content="#ff6f61">
+  <link rel="manifest" href="manifest.webmanifest">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Leaflet.js Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- App Style -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Webサイト全体レイアウト -->
+  <div class="device-wrapper">
+    <div class="device-screen">
+      
+      <!-- 旧スマホ表示用ステータスバー（Web版ではCSSで非表示） -->
+      <div class="status-bar">
+        <span class="time">9:41</span>
+        <div class="status-icons">
+          <i class="fa-solid fa-signal"></i>
+          <i class="fa-solid fa-wifi"></i>
+          <i class="fa-solid fa-battery-three-quarters"></i>
+        </div>
+      </div>
+
+      <!-- アプリヘッダー -->
+      <header class="app-header">
+        <div class="header-logo">
+          <i class="fa-solid fa-utensils logo-icon"></i>
+          <div>
+            <h1>もぐログ</h1>
+            <span>My Gourmet Notes</span>
+          </div>
+        </div>
+        <div class="header-meta">
+          <span><i class="fa-solid fa-desktop"></i> Web版</span>
+          <span id="sync-status" class="sync-status local"><i class="fa-solid fa-cloud-arrow-up"></i> ローカル保存</span>
+          <span><i class="fa-solid fa-mobile-screen"></i> アプリ化設定は保管中</span>
+        </div>
+      </header>
+
+      <!-- 画面コンテンツエリア -->
+      <main class="app-content">
+        
+        <!-- 1. グルメメモ画面 -->
+        <section id="screen-timeline" class="app-screen active">
+          <div class="timeline-header">
+            <div>
+              <h2>グルメメモ</h2>
+              <p>好きな店、行きたい店、実際に行った店を自分用に育てる場所です。</p>
+            </div>
+            <span id="timeline-count" class="timeline-count">0件</span>
+          </div>
+          <section class="memo-dashboard" aria-label="グルメメモ概要">
+            <div class="memo-stat-card">
+              <span>メモ</span>
+              <strong id="stat-total-cards">0</strong>
+            </div>
+            <div class="memo-stat-card visited">
+              <span>行った</span>
+              <strong id="stat-visited-cards">0</strong>
+            </div>
+            <div class="memo-stat-card want">
+              <span>行きたい</span>
+              <strong id="stat-want-cards">0</strong>
+            </div>
+            <div class="memo-stat-card area">
+              <span>エリア</span>
+              <strong id="stat-area-count">0</strong>
+            </div>
+          </section>
+          <div class="memo-search-panel">
+            <div class="memo-search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="search" id="memo-search-input" placeholder="店名・料理名・住所・エリア・営業時間で検索">
+            </div>
+            <div class="memo-filter-chips" id="memo-status-filters">
+              <button class="memo-filter-chip active" data-status="all">すべて</button>
+              <button class="memo-filter-chip" data-status="want">行きたい</button>
+              <button class="memo-filter-chip" data-status="visited">行った</button>
+            </div>
+          </div>
+          <div class="timeline-container" id="timeline-list">
+            <!-- カードはJSで動的に生成されます -->
+          </div>
+        </section>
+
+        <!-- 2. デッキ確認画面 -->
+        <section id="screen-deck" class="app-screen">
+          <section class="exchange-panel" aria-label="週間カード交換">
+            <div class="exchange-panel-header">
+              <div>
+                <p class="exchange-kicker">Weekly Shuffle</p>
+                <h3>デッキ確認</h3>
+              </div>
+              <span class="exchange-pill" id="deck-count">0/5</span>
+            </div>
+            <p class="exchange-copy">
+              手持ちは最大5枚。お気に入り3枚は固定され、残り2枚が週1回、登録エリアごとのランダムカードと自動交換されます。ここから文言編集とおすそわけもできます。
+            </p>
+            <div class="exchange-controls">
+              <label class="exchange-select-label">
+                交換エリア
+                <select id="exchange-area-select">
+                  <option value="梅田">梅田</option>
+                  <option value="難波">難波</option>
+                  <option value="心斎橋">心斎橋</option>
+                  <option value="天王寺">天王寺</option>
+                  <option value="京都河原町">京都河原町</option>
+                  <option value="神戸三宮">神戸三宮</option>
+                </select>
+              </label>
+              <div class="exchange-toggle-label">
+                <span>県外交換</span>
+                <label class="switch">
+                  <input type="checkbox" id="toggle-out-prefecture">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+              <button class="btn-exchange-now" id="btn-run-exchange" type="button">
+                <i class="fa-solid fa-rotate"></i> 今すぐ2枚交換
+              </button>
+            </div>
+            <div class="deck-list" id="deck-list"></div>
+            <div class="exchange-status" id="exchange-status"></div>
+          </section>
+        </section>
+
+        <!-- 3. マイ図鑑/コレクション画面 -->
+        <section id="screen-collection" class="app-screen">
+          <div class="collection-header">
+            <h2>マイ図鑑 <span class="card-count" id="collection-count">(0枚)</span></h2>
+            <p class="screen-lead">保存したお店をエリア別・ジャンル別に整理します。行った店マークや文言編集もここから管理できます。</p>
+            <div class="filter-tabs">
+              <button class="filter-tab active" data-filter="area">エリア別</button>
+              <button class="filter-tab" data-filter="genre">ジャンル別</button>
+            </div>
+          </div>
+          <div class="collection-container" id="collection-list">
+            <!-- コレクションアイテムはJSで動的に分類・配置されます -->
+          </div>
+        </section>
+
+        <!-- 4. フレンド画面 -->
+        <section id="screen-friends" class="app-screen">
+          <div class="friend-panel">
+            <div class="friend-panel-header">
+              <div>
+                <h2>フレンド</h2>
+                <p>ユーザー名を検索して申請し、相互フォローの相手を整理できます。</p>
+              </div>
+              <i class="fa-solid fa-user-group"></i>
+            </div>
+            <div class="friend-search-row">
+              <input type="search" id="friend-search-input" placeholder="ユーザー名を入力">
+              <button type="button" id="btn-send-friend-request">
+                <i class="fa-solid fa-user-plus"></i> 申請
+              </button>
+            </div>
+            <div class="friend-list" id="friend-list"></div>
+          </div>
+        </section>
+
+        <!-- 5. マイマップ画面 (ソートフィルター追加) -->
+        <section id="screen-map" class="app-screen">
+          <!-- 上部検索＆ソート用オーバーレイ -->
+          <div class="map-search-bar-wrapper">
+            <div class="map-search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="search" id="map-search-input" placeholder="お店・料理名・住所・営業時間で探す">
+            </div>
+            <!-- ジャンル別ソートフィルターバー -->
+            <div class="map-filter-chips" id="map-filter-chips">
+              <button class="map-filter-chip active" data-genre="All">All</button>
+              <button class="map-filter-chip" data-genre="ラーメン">ラーメン</button>
+              <button class="map-filter-chip" data-genre="カフェ">カフェ</button>
+              <button class="map-filter-chip" data-genre="寿司">寿司</button>
+              <button class="map-filter-chip" data-genre="洋食">洋食</button>
+              <button class="map-filter-chip" data-genre="カレー">カレー</button>
+            </div>
+          </div>
+
+          <div id="map-container"></div>
+          <div class="map-overlay-info" id="map-popup-card" style="display: none;">
+            <!-- ピンタップ時の簡易ポップアップカード -->
+          </div>
+        </section>
+
+      </main>
+
+      <!-- ボトムナビゲーション -->
+      <nav class="bottom-nav">
+        <button class="nav-item active" data-screen="timeline">
+          <i class="fa-solid fa-note-sticky"></i>
+          <span>メモ</span>
+        </button>
+        <button class="nav-item" data-screen="collection">
+          <i class="fa-solid fa-box-archive"></i>
+          <span>図鑑</span>
+        </button>
+        <button class="nav-item" data-screen="map">
+          <i class="fa-solid fa-map-location-dot"></i>
+          <span>マップ</span>
+        </button>
+      </nav>
+
+      <!-- 投稿ボタン (FAB) -->
+      <button class="fab-post" id="btn-open-post">
+        <i class="fa-solid fa-camera"></i>
+      </button>
+
+      <!-- 新規投稿モーダル (カメラ・ファイルアップロード対応) -->
+      <div class="modal-backdrop" id="post-modal">
+        <div class="modal-container">
+          <div class="modal-header">
+            <h3>美味しい瞬間をカードにする 📸</h3>
+            <button class="btn-close-modal" id="btn-close-post"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="modal-body">
+            <form id="post-form">
+              <!-- 画像選択とプレビュー -->
+              <div class="form-group image-picker-group">
+                <label>料理写真を選択・撮影</label>
+                
+                <!-- 【追加！】本物のファイルアップロード/カメラ呼び出し用ボタン -->
+                <div class="file-upload-actions">
+                  <button type="button" class="btn-action-upload" id="btn-trigger-upload">
+                    <i class="fa-solid fa-image-portrait"></i> 写真を選択 / 撮影する
+                  </button>
+                  <input type="file" id="post-file-input" accept="image/*" style="display: none;">
+                </div>
+
+                <!-- プレビュー -->
+                <div class="image-preview-wrapper empty" id="post-preview-wrapper">
+                  <img id="post-preview-img" alt="Preview">
+                  <div class="image-empty-state" id="image-empty-state">
+                    <i class="fa-solid fa-camera-retro"></i>
+                    <span>撮影した料理写真を選択してください</span>
+                  </div>
+                  <!-- 湯気エフェクトシミュレータ -->
+                  <div class="steam-container" id="preview-steam">
+                    <div class="steam-line"></div>
+                    <div class="steam-line"></div>
+                    <div class="steam-line"></div>
+                  </div>
+                  <!-- キラキラエフェクト -->
+                  <div class="sparkle-container" id="preview-sparkles" style="display: none;">
+                    <div class="sparkle size-1"></div>
+                    <div class="sparkle size-2"></div>
+                    <div class="sparkle size-3"></div>
+                    <div class="sparkle size-1"></div>
+                    <div class="sparkle size-2"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- AI加工トグル -->
+              <div class="form-group row-group">
+                <label for="toggle-sizzle">AIシズル感加工を適用</label>
+                <label class="switch">
+                  <input type="checkbox" id="toggle-sizzle" checked>
+                  <span class="slider round"></span>
+                </label>
+                <p class="form-help">OFFにすると、写真はシズル加工なしの無加工カードとして登録されます。</p>
+              </div>
+
+              <!-- 限定トグル -->
+              <div class="form-group row-group">
+                <label for="toggle-limited">
+                  <i class="fa-solid fa-star text-amber"></i> 期間限定・数量限定 (限定フレーム)
+                </label>
+                <label class="switch">
+                  <input type="checkbox" id="toggle-limited">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <!-- 料理名 -->
+              <div class="form-group">
+                <label for="post-title">料理名</label>
+                <input type="text" id="post-title" placeholder="例: 特製醤油つけ麺" required>
+              </div>
+
+              <!-- 店舗名 -->
+              <div class="form-group">
+                <label for="post-shop">店舗名</label>
+                <input type="text" id="post-shop" placeholder="例: ラーメン極み" required>
+              </div>
+
+              <!-- 場所記録 -->
+              <div class="form-group">
+                <label for="post-address">住所・場所メモ</label>
+                <input type="text" id="post-address" placeholder="例: 大阪市北区梅田1丁目 / 駅前ビル近く">
+                <p class="form-help">空欄でも店名とエリアから場所を探します。正確に残したい時は住所を入れてください。</p>
+              </div>
+
+              <div class="form-group location-record-group">
+                <div class="location-record-header">
+                  <span>地図の記録位置</span>
+                  <button type="button" id="btn-use-current-location" class="btn-secondary-small">
+                    <i class="fa-solid fa-location-crosshairs"></i> 今いる場所を使う
+                  </button>
+                </div>
+                <div class="form-row compact">
+                  <input type="number" id="post-lat" step="0.000001" placeholder="緯度">
+                  <input type="number" id="post-lng" step="0.000001" placeholder="経度">
+                </div>
+                <p class="form-help" id="post-location-status">未入力なら、無料の場所検索で候補を探します。</p>
+              </div>
+
+              <!-- 営業時間 -->
+              <div class="form-group">
+                <label for="post-hours">営業時間（空欄ならGoogle Mapsから自動補完）</label>
+                <input type="text" id="post-hours" placeholder="例: 11:00-15:00 / 17:00-22:00">
+                <p class="form-help">入力を忘れても、試作版では店舗名・エリアからGoogle Maps情報を想定して自動で補完します。</p>
+              </div>
+
+              <!-- エリア・ジャンル -->
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="post-area">エリア</label>
+                  <select id="post-area">
+                    <option value="梅田">梅田</option>
+                    <option value="難波">難波</option>
+                    <option value="心斎橋">心斎橋</option>
+                    <option value="天王寺">天王寺</option>
+                    <option value="京都河原町">京都河原町</option>
+                    <option value="神戸三宮">神戸三宮</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="post-genre">ジャンル</label>
+                  <select id="post-genre">
+                    <option value="ラーメン">ラーメン</option>
+                    <option value="カフェ">カフェ</option>
+                    <option value="寿司">寿司</option>
+                    <option value="洋食">洋食</option>
+                    <option value="カレー">カレー</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- コメント -->
+              <div class="form-group">
+                <label for="post-comment">美味しい一言コメント (※ポジティブ限定)</label>
+                <textarea id="post-comment" rows="2" placeholder="例: 麺のもちもち感とスープの相性がバツグンでした！" required></textarea>
+              </div>
+
+              <!-- エラーメッセージ -->
+              <div class="error-msg" id="post-error" style="display: none;"></div>
+
+              <button type="submit" class="btn-submit">カードを生成して投稿する</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- タイムラインからの手動交換モーダル -->
+      <div class="modal-backdrop" id="manual-exchange-modal">
+        <div class="modal-container manual-exchange-container">
+          <div class="modal-header">
+            <h3>手持ちカードと交換</h3>
+            <button class="btn-close-modal" id="btn-close-manual-exchange"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="manual-exchange-target" id="manual-exchange-target"></div>
+          <p class="manual-exchange-copy">
+            手持ちカードを1枚選ぶと、このタイムラインカードとその場で交換できます。交換で外れたカードも図鑑には残ります。
+          </p>
+          <div class="manual-deck-list" id="manual-deck-list"></div>
+        </div>
+      </div>
+
+      <!-- 【追加！】マイ図鑑用の詳細フリップモーダル -->
+      <div class="modal-backdrop" id="collection-detail-modal">
+        <div class="modal-container detail-modal-container">
+          <div class="detail-modal-header">
+            <h3>カード詳細 (タップして反転)</h3>
+            <button class="btn-close-modal" id="btn-close-detail"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="detail-card-wrapper" id="detail-card-slot">
+            <!-- JSでフリップカードが動的に差し込まれます -->
+          </div>
+          <div class="detail-hint-text">
+            <i class="fa-solid fa-arrow-rotate-left"></i> タップして裏面情報（店舗詳細）を見る
+          </div>
+          <div class="share-panel future-only">
+            <div>
+              <h4>カードのおすそわけ</h4>
+              <p>相互フォローのフレンドにだけ送れます。相手が受け取ると、その人の図鑑とマップにお店情報が登録されます。</p>
+            </div>
+            <div class="share-actions">
+              <select id="share-friend-select"></select>
+              <button type="button" id="btn-share-card" class="btn-share-card">
+                <i class="fa-solid fa-gift"></i> おすそわけ
+              </button>
+            </div>
+            <button type="button" class="btn-message-premium" disabled>
+              <i class="fa-solid fa-comment-dots"></i> メッセージはPremiumで解放予定
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Leaflet.js Map Library -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- App Config -->
+  <script src="config.js"></script>
+  <!-- App JS -->
+  <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js", { scope: "./" }).catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

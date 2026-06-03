@@ -1,0 +1,49 @@
+name: Deploy MoguLog Web to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: mogulog-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare static site
+        run: |
+          test -f mogulog_flutter/web_app/index.html
+          rm -rf mogulog_pages
+          mkdir -p mogulog_pages
+          cp -R mogulog_flutter/web_app/. mogulog_pages/
+          rm -f mogulog_pages/server.js
+          rm -rf mogulog_pages/data
+          touch mogulog_pages/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: mogulog_pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

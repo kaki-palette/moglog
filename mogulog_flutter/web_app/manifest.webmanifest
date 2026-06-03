@@ -1,0 +1,25 @@
+{
+  "name": "もぐログ",
+  "short_name": "もぐログ",
+  "description": "自分の好きなお店を育てる個人用グルメメモ",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121214",
+  "theme_color": "#ff6f61",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "assets/ramen.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/ramen.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

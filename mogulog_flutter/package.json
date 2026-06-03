@@ -1,0 +1,11 @@
+{
+  "name": "mogulog-personal-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node web_app/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
