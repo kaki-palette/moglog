@@ -1,4 +1,4 @@
-const CACHE_NAME = "mogulog-shell-v4";
+const CACHE_NAME = "mogulog-shell-v6";
 const APP_ROOT_URL = new URL("./", self.location.href).toString();
 const API_PATH = new URL("api/", APP_ROOT_URL).pathname;
 const AUTH_PATH = new URL("auth", APP_ROOT_URL).pathname;
@@ -9,9 +9,7 @@ const APP_SHELL = [
   "style.css",
   "app.js",
   "manifest.webmanifest",
-  "assets/ramen.png",
-  "assets/pancake.png",
-  "assets/sushi.png"
+  "assets/occhiali-oga-antipasto.jpg"
 ].map(path => new URL(path, APP_ROOT_URL).toString());
 
 self.addEventListener("install", event => {

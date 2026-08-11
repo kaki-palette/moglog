@@ -170,6 +170,40 @@ const DEFAULT_CARDS = [
   }
 ];
 
+const FEATURED_CARDS = [
+  {
+    id: "occhiali-oga-2026-08",
+    imageUrl: "assets/occhiali-oga-antipasto.jpg",
+    title: "前菜盛り合わせとピザ",
+    comment: "一人飲みコースで本格イタリアンを気軽に楽しめる、また行きたい一軒でした。",
+    story: "河内山本にある落ち着いたイタリアン。テーブル席が5卓ほどで、一人飲みだと少し入りづらく感じるかもしれませんが、約2,000円の一人飲みコースがあり、コスパ良く本格イタリアンを楽しめます。今回はピザと前菜の盛り合わせを注文。ピザ選びで迷っていると、お店の方がこちらに合わせてコースのようにまとめてくださり、料理だけでなく接客も気持ちの良いお店でした。",
+    shopName: "オッキャーリ オガ",
+    businessHours: "火-金 12:00-15:00 / 18:00-22:00、土日祝 11:30-15:00 / 18:00-22:00、月曜定休",
+    businessHoursSource: "web_reference",
+    phone: "072-998-3232",
+    prefecture: "大阪府",
+    address: "大阪府八尾市山本町南1-8-21",
+    area: "河内山本",
+    genre: "イタリアン",
+    lat: 34.6258,
+    lng: 135.6193,
+    locationSource: "saved_location",
+    googleMapsUrl: "https://www.google.com/maps/search/?api=1&query=%E3%82%AA%E3%83%83%E3%82%AD%E3%83%A3%E3%83%BC%E3%83%AA%20%E3%82%AA%E3%82%AC%20%E5%A4%A7%E9%98%AA%E5%BA%9C%E5%85%AB%E5%B0%BE%E5%B8%82%E5%B1%B1%E6%9C%AC%E7%94%BA%E5%8D%971-8-21",
+    referenceUrl: "https://occhialioga.owst.jp/",
+    isLimited: false,
+    isUnlocked: true,
+    isMyCard: true,
+    isNewInDeck: false,
+    hasVisited: true,
+    visitedAt: "2026-08-11T00:00:00.000Z",
+    aiProcessed: true,
+    creatorName: "kaki-palette",
+    creatorId: "local-user",
+    sharedWith: [],
+    acquiredAt: "2026-08-11T00:00:00.000Z"
+  }
+];
+
 const CARD_IMAGE_MAX_SIZE = 1400;
 const CARD_IMAGE_QUALITY = 0.82;
 
@@ -193,6 +227,8 @@ const FRIENDS_KEY = "mogu_log_friends";
 const SHARE_DELIVERIES_KEY = "mogu_log_share_deliveries";
 const LOCAL_CARDS_KEY = "mogu_log_cards";
 const LOCAL_UPDATED_AT_KEY = "mogu_log_updated_at";
+const LOCAL_CONTENT_VERSION_KEY = "mogu_log_content_version";
+const CONTENT_SEED_VERSION = "occhiali-oga-2026-08-11";
 const MOGULOG_CONFIG = window.MOGULOG_CONFIG || {};
 const SYNC_ENDPOINT = MOGULOG_CONFIG.syncEndpoint || "/api/mogulog";
 let serverSyncAvailable = MOGULOG_CONFIG.syncMode !== "local" && window.location.protocol !== "file:";
@@ -242,14 +278,15 @@ let exchangeSettings = {
 // ローカルストレージから読み込み、または初期化
 function loadState() {
   const saved = localStorage.getItem(LOCAL_CARDS_KEY);
-  if (saved) {
+  const savedContentVersion = localStorage.getItem(LOCAL_CONTENT_VERSION_KEY);
+  if (saved && savedContentVersion === CONTENT_SEED_VERSION) {
     try {
       cards = JSON.parse(saved);
     } catch (e) {
-      cards = [...DEFAULT_CARDS];
+      cards = [...FEATURED_CARDS];
     }
   } else {
-    cards = [...DEFAULT_CARDS];
+    cards = [...FEATURED_CARDS];
   }
 
   cards = mergeDefaultCards(cards).map(normalizeCard);
@@ -285,6 +322,7 @@ function saveState(options = {}) {
     localStorage.setItem(FRIENDS_KEY, JSON.stringify(friends));
     localStorage.setItem(SHARE_DELIVERIES_KEY, JSON.stringify(shareDeliveries));
     localStorage.setItem(LOCAL_UPDATED_AT_KEY, new Date().toISOString());
+    localStorage.setItem(LOCAL_CONTENT_VERSION_KEY, CONTENT_SEED_VERSION);
   } catch (error) {
     updateSyncStatus("端末保存容量を超過 / サーバー同期中", "pending");
     showToast("写真データが大きく、端末保存容量を超えました。写真を少なめにするか、クラウド同期導入後に保存してください。");
@@ -420,7 +458,7 @@ function formatSyncTime(value) {
 
 function mergeDefaultCards(savedCards) {
   const savedIds = new Set(savedCards.map(card => card.id));
-  const missingDefaults = DEFAULT_CARDS.filter(card => !savedIds.has(card.id));
+  const missingDefaults = FEATURED_CARDS.filter(card => !savedIds.has(card.id));
   return [...savedCards, ...missingDefaults];
 }
 
@@ -440,6 +478,10 @@ function normalizeCard(card) {
     creatorId: card.creatorId || card.originalCreatorId || "",
     businessHours: providedHours ? card.businessHours.trim() : lookupGoogleMapsBusinessHours(card),
     businessHoursSource: providedHours ? (card.businessHoursSource || "manual") : "google_maps_mock",
+    story: card.story || "",
+    phone: card.phone || "",
+    googleMapsUrl: card.googleMapsUrl || "",
+    referenceUrl: card.referenceUrl || "",
     isLimited: Boolean(card.isLimited),
     isUnlocked: Boolean(card.isUnlocked),
     isMyCard: Boolean(card.isMyCard),
@@ -686,6 +728,10 @@ function getLocationSourceLabel(card) {
 }
 
 function getGoogleMapsUrl(card) {
+  if (card.googleMapsUrl) {
+    return card.googleMapsUrl;
+  }
+
   if (isValidCoordinate(card.lat, card.lng) && card.locationSource !== "area_fallback") {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${card.lat},${card.lng}`)}`;
   }
@@ -999,6 +1045,9 @@ function createCardHtml(card, insideModal = false) {
   const safeAddress = escapeHtml(card.address);
   const safeCreator = escapeHtml(formatCreatorName(card.creatorName));
   const safeHours = escapeHtml(card.businessHours);
+  const safeStory = escapeHtml(card.story || "");
+  const safePhone = escapeHtml(card.phone || "");
+  const safeReferenceUrl = escapeAttr(card.referenceUrl || "");
   const safeGoogleUrl = escapeAttr(getGoogleMapsUrl(card));
   const imageClass = card.aiProcessed ? "sizzled" : "";
   const steamHtml = card.aiProcessed
@@ -1088,6 +1137,8 @@ function createCardHtml(card, insideModal = false) {
             <small>${getBusinessHoursSourceLabel(card)}</small>
           </div>
         </div>
+        ${card.phone ? `<div class="shop-address"><i class="fa-solid fa-phone"></i> ${safePhone}</div>` : ''}
+        ${card.story ? `<div class="shop-story"><span>体験メモ</span><p>${safeStory}</p></div>` : ''}
         ${card.hasVisited ? `<div class="visited-note"><i class="fa-solid fa-circle-check"></i> 自分で実際に行ったお店</div>` : ''}
         
         <div class="shop-map-preview">
@@ -1101,6 +1152,7 @@ function createCardHtml(card, insideModal = false) {
         <a class="btn-open-google" href="${safeGoogleUrl}" target="_blank" rel="noopener">
           <i class="fa-solid fa-up-right-from-square"></i> Google Mapsで開く
         </a>
+        ${card.referenceUrl ? `<a class="btn-open-reference" href="${safeReferenceUrl}" target="_blank" rel="noopener"><i class="fa-solid fa-link"></i> 店舗ページを見る</a>` : ''}
       </div>
     </div>
   `;
