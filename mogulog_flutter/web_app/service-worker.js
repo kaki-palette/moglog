@@ -1,4 +1,4 @@
-const CACHE_NAME = "mogulog-shell-v3";
+const CACHE_NAME = "mogulog-shell-v4";
 const APP_ROOT_URL = new URL("./", self.location.href).toString();
 const API_PATH = new URL("api/", APP_ROOT_URL).pathname;
 const AUTH_PATH = new URL("auth", APP_ROOT_URL).pathname;

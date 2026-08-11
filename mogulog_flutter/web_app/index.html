@@ -149,6 +149,11 @@
               <button class="filter-tab active" data-filter="area">エリア別</button>
               <button class="filter-tab" data-filter="genre">ジャンル別</button>
             </div>
+            <div class="collection-actions">
+              <button type="button" class="btn-collection-add" id="btn-collection-add-card">
+                <i class="fa-solid fa-camera"></i> 図鑑にカード追加
+              </button>
+            </div>
           </div>
           <div class="collection-container" id="collection-list">
             <!-- コレクションアイテムはJSで動的に分類・配置されます -->
@@ -305,7 +310,7 @@
               <div class="form-group">
                 <label for="post-address">住所・場所メモ</label>
                 <input type="text" id="post-address" placeholder="例: 大阪市北区梅田1丁目 / 駅前ビル近く">
-                <p class="form-help">空欄でも店名とエリアから場所を探します。正確に残したい時は住所を入れてください。</p>
+                <p class="form-help">空欄でも店名から場所を探します。正確に残したい時は住所を入れてください。</p>
               </div>
 
               <div class="form-group location-record-group">
@@ -332,15 +337,9 @@
               <!-- エリア・ジャンル -->
               <div class="form-row">
                 <div class="form-group">
-                  <label for="post-area">エリア</label>
-                  <select id="post-area">
-                    <option value="梅田">梅田</option>
-                    <option value="難波">難波</option>
-                    <option value="心斎橋">心斎橋</option>
-                    <option value="天王寺">天王寺</option>
-                    <option value="京都河原町">京都河原町</option>
-                    <option value="神戸三宮">神戸三宮</option>
-                  </select>
+                  <label for="post-area">エリア（自動判定）</label>
+                  <input type="text" id="post-area" value="場所から自動判定" readonly>
+                  <p class="form-help">店名・住所・現在地から自動で登録します。</p>
                 </div>
                 <div class="form-group">
                   <label for="post-genre">ジャンル</label>

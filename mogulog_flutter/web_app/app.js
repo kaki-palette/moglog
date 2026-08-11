@@ -604,7 +604,7 @@ function shuffleCards(list) {
 }
 
 function getAreaProfile(area) {
-  return AREA_PROFILES[area] || AREA_PROFILES["梅田"];
+  return AREA_PROFILES[area] || { prefecture: "未設定", lat: 34.69, lng: 135.50 };
 }
 
 function randomLatLngForArea(area) {
@@ -612,6 +612,53 @@ function randomLatLngForArea(area) {
   return {
     lat: profile.lat + (Math.random() - 0.5) * 0.012,
     lng: profile.lng + (Math.random() - 0.5) * 0.012
+  };
+}
+
+function pickAddressPart(address, keys) {
+  if (!address) return "";
+  for (const key of keys) {
+    const value = address[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function normalizeAutoAreaName(value) {
+  return String(value || "")
+    .replace(/日本/g, "")
+    .replace(/〒?\d{3}-?\d{4}/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function inferAreaFromText(text) {
+  const matches = String(text || "").match(/[^,\s、\/]+?(?:区|市|町|村)/g);
+  if (!matches || matches.length === 0) return "";
+  return matches[matches.length - 1];
+}
+
+function deriveAreaInfoFromAddress(address = {}, fallbackText = "") {
+  const prefecture = pickAddressPart(address, ["state", "province", "prefecture"]) || "";
+  const area = pickAddressPart(address, [
+    "suburb",
+    "city_district",
+    "ward",
+    "quarter",
+    "neighbourhood",
+    "town",
+    "village",
+    "city",
+    "municipality",
+    "county"
+  ]);
+  const fallbackArea = inferAreaFromText(fallbackText)
+    || normalizeAutoAreaName(fallbackText).split(/[、,\/\s]/)[0]
+    || "";
+
+  return {
+    area: normalizeAutoAreaName(area) || fallbackArea || "未分類エリア",
+    prefecture: normalizeAutoAreaName(prefecture) || "未設定"
   };
 }
 
@@ -1555,6 +1602,9 @@ function renderCollection() {
             <button type="button" class="grid-visited-btn ${c.hasVisited ? 'active' : ''}" onclick="toggleVisited(event, '${escapeAttr(c.id)}')" title="実際に行ったマーク">
               <i class="${c.hasVisited ? 'fa-solid' : 'fa-regular'} fa-circle-check"></i>
             </button>
+            <button type="button" class="grid-delete-btn" onclick="deleteRecordedCard(event, '${escapeAttr(c.id)}')" title="図鑑から削除">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
             ${c.hasVisited ? `<div class="grid-visited-ribbon"><i class="fa-solid fa-circle-check"></i> 行った</div>` : ''}
             <div class="grid-item-info">
               <span class="grid-item-title">${escapeHtml(c.title)}</span>
@@ -1933,7 +1983,12 @@ function showMapPopupCard(card) {
   mapPopupCard.style.display = "flex";
 }
 
-function deleteRecordedCard(id) {
+function deleteRecordedCard(eventOrId, maybeId) {
+  if (eventOrId && typeof eventOrId.stopPropagation === "function") {
+    eventOrId.stopPropagation();
+  }
+
+  const id = typeof eventOrId === "string" ? eventOrId : maybeId;
   const card = cards.find(c => c.id === id);
   if (!card) return;
 
@@ -1957,7 +2012,11 @@ function deleteRecordedCard(id) {
   renderTimeline();
   renderDeckScreen();
   renderCollection();
-  initOrRefreshMap();
+  if (mapInstance) initOrRefreshMap();
+  if (selectedDetailCardId === id) {
+    selectedDetailCardId = null;
+    collectionDetailModal.classList.remove("show");
+  }
   showToast(`🗑️ ${card.title} の記録を削除しました。`);
 }
 
@@ -1965,6 +2024,7 @@ function deleteRecordedCard(id) {
 // 7. 新規投稿モーダル処理 ＆ カメラ・ファイル選択
 // ==========================================
 const btnOpenPost = document.getElementById("btn-open-post");
+const btnCollectionAddCard = document.getElementById("btn-collection-add-card");
 const btnClosePost = document.getElementById("btn-close-post");
 const postModal = document.getElementById("post-modal");
 const postForm = document.getElementById("post-form");
@@ -1981,6 +2041,7 @@ const postError = document.getElementById("post-error");
 const btnTriggerUpload = document.getElementById("btn-trigger-upload");
 const postFileInput = document.getElementById("post-file-input");
 const postAddressInput = document.getElementById("post-address");
+const postAreaInput = document.getElementById("post-area");
 const postLatInput = document.getElementById("post-lat");
 const postLngInput = document.getElementById("post-lng");
 const postLocationStatus = document.getElementById("post-location-status");
@@ -1992,6 +2053,12 @@ let selectedImagePath = "";
 btnTriggerUpload.addEventListener("click", () => {
   postFileInput.click();
 });
+
+if (btnCollectionAddCard) {
+  btnCollectionAddCard.addEventListener("click", () => {
+    btnOpenPost.click();
+  });
+}
 
 if (btnUseCurrentLocation) {
   btnUseCurrentLocation.addEventListener("click", () => {
@@ -2068,6 +2135,7 @@ btnOpenPost.addEventListener("click", () => {
   previewSteam.style.display = "none";
   previewSparkles.style.display = "none";
   postError.style.display = "none";
+  if (postAreaInput) postAreaInput.value = "場所から自動判定";
   setPostLocationStatus("未入力なら、無料の場所検索で候補を探します。");
 
   postModal.classList.add("show");
@@ -2111,10 +2179,12 @@ function useCurrentLocationForPost() {
 
   setPostLocationStatus("現在地を取得しています...");
   navigator.geolocation.getCurrentPosition(
-    position => {
+    async position => {
       postLatInput.value = position.coords.latitude.toFixed(6);
       postLngInput.value = position.coords.longitude.toFixed(6);
-      setPostLocationStatus("現在地を記録位置にセットしました。");
+      const areaInfo = await reverseGeocodeCoordinate(position.coords.latitude, position.coords.longitude, postAddressInput?.value || "");
+      if (postAreaInput) postAreaInput.value = areaInfo.area;
+      setPostLocationStatus(`現在地を記録位置にセットしました。${areaInfo.area}エリアで保存します。`);
     },
     () => {
       setPostLocationStatus("現在地を取得できませんでした。スマホではHTTPS以外だと制限される場合があります。住所入力で記録できます。");
@@ -2127,8 +2197,8 @@ function useCurrentLocationForPost() {
   );
 }
 
-async function geocodePlace(shop, area, address) {
-  const query = [shop, address, area, "日本"].filter(Boolean).join(" ");
+async function geocodePlace(shop, address) {
+  const query = [shop, address, "日本"].filter(Boolean).join(" ");
   if (!query.trim()) return null;
 
   try {
@@ -2140,48 +2210,74 @@ async function geocodePlace(shop, area, address) {
     const results = await response.json();
     const first = Array.isArray(results) ? results[0] : null;
     if (!first || !isValidCoordinate(first.lat, first.lon)) return null;
+    const areaInfo = deriveAreaInfoFromAddress(first.address, first.display_name || address);
 
     return {
       lat: Number(first.lat),
       lng: Number(first.lon),
       address: address || first.display_name || "",
-      source: "osm_geocode"
+      source: "osm_geocode",
+      area: areaInfo.area,
+      prefecture: areaInfo.prefecture
     };
   } catch (error) {
     return null;
   }
 }
 
-async function resolvePostLocation(shop, area, address) {
+async function reverseGeocodeCoordinate(lat, lng, fallbackText = "") {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&addressdetails=1&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
+    const response = await fetch(url, {
+      headers: { "Accept": "application/json" }
+    });
+    if (!response.ok) return deriveAreaInfoFromAddress({}, fallbackText);
+    const result = await response.json();
+    return deriveAreaInfoFromAddress(result.address, result.display_name || fallbackText);
+  } catch (error) {
+    return deriveAreaInfoFromAddress({}, fallbackText);
+  }
+}
+
+async function resolvePostLocation(shop, address) {
   const latValue = String(postLatInput?.value || "").trim();
   const lngValue = String(postLngInput?.value || "").trim();
   const manualLat = Number(latValue);
   const manualLng = Number(lngValue);
   if (latValue && lngValue && isValidCoordinate(manualLat, manualLng)) {
+    const areaInfo = await reverseGeocodeCoordinate(manualLat, manualLng, address || shop);
+    if (postAreaInput) postAreaInput.value = areaInfo.area;
     return {
       lat: manualLat,
       lng: manualLng,
       address,
-      source: "manual_coordinate"
+      source: "manual_coordinate",
+      area: areaInfo.area,
+      prefecture: areaInfo.prefecture
     };
   }
 
   setPostLocationStatus("店名・住所から場所を探しています...");
-  const found = await geocodePlace(shop, area, address);
+  const found = await geocodePlace(shop, address);
   if (found) {
     postLatInput.value = found.lat.toFixed(6);
     postLngInput.value = found.lng.toFixed(6);
-    setPostLocationStatus("場所候補を見つけました。地図にこの位置で保存します。");
+    if (postAreaInput) postAreaInput.value = found.area;
+    setPostLocationStatus(`場所候補を見つけました。${found.area}エリアで保存します。`);
     return found;
   }
 
-  const fallback = randomLatLngForArea(area);
+  const fallbackArea = deriveAreaInfoFromAddress({}, address || shop);
+  const fallback = randomLatLngForArea(fallbackArea.area);
+  if (postAreaInput) postAreaInput.value = fallbackArea.area;
   setPostLocationStatus("場所候補が見つからなかったため、エリア付近の仮位置で保存します。あとで編集できます。");
   return {
     lat: fallback.lat,
     lng: fallback.lng,
     address,
-    source: "area_fallback"
+    source: "area_fallback",
+    area: fallbackArea.area,
+    prefecture: fallbackArea.prefecture
   };
 }
 
@@ -2194,7 +2290,6 @@ postForm.addEventListener("submit", async (e) => {
   const shop = document.getElementById("post-shop").value.trim();
   const address = document.getElementById("post-address").value.trim();
   const businessHours = document.getElementById("post-hours").value.trim();
-  const area = document.getElementById("post-area").value;
   const genre = document.getElementById("post-genre").value;
   const comment = document.getElementById("post-comment").value.trim();
 
@@ -2211,9 +2306,10 @@ postForm.addEventListener("submit", async (e) => {
     return;
   }
 
-  // 緯度経度のランダム割り当て（エリア付近）
-  const position = await resolvePostLocation(shop, area, address);
-  const areaProfile = getAreaProfile(area);
+  const position = await resolvePostLocation(shop, address);
+  const area = position.area || "未分類エリア";
+  const prefecture = position.prefecture || "未設定";
+  if (postAreaInput) postAreaInput.value = area;
 
   const newCard = {
     id: Date.now().toString(),
@@ -2223,7 +2319,7 @@ postForm.addEventListener("submit", async (e) => {
     shopName: shop,
     businessHours: businessHours,
     businessHoursSource: businessHours ? "manual" : "google_maps_mock",
-    prefecture: areaProfile.prefecture,
+    prefecture: prefecture,
     address: position.address || address,
     area: area,
     genre: genre,
