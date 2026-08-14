@@ -174,11 +174,12 @@ const FEATURED_CARDS = [
   {
     id: "occhiali-oga-2026-08",
     imageUrl: "assets/occhiali-oga-antipasto.jpg",
+    imageUrls: ["assets/occhiali-oga-antipasto.jpg"],
     title: "前菜盛り合わせとピザ",
     comment: "一人飲みコースで本格イタリアンを気軽に楽しめる、また行きたい一軒でした。",
     story: "河内山本にある落ち着いたイタリアン。テーブル席が5卓ほどで、一人飲みだと少し入りづらく感じるかもしれませんが、約2,000円の一人飲みコースがあり、コスパ良く本格イタリアンを楽しめます。今回はピザと前菜の盛り合わせを注文。ピザ選びで迷っていると、お店の方がこちらに合わせてコースのようにまとめてくださり、料理だけでなく接客も気持ちの良いお店でした。",
     shopName: "オッキャーリ オガ",
-    businessHours: "火-金 12:00-15:00 / 18:00-22:00、土日祝 11:30-15:00 / 18:00-22:00、月曜定休",
+    businessHours: "月曜　定休\n火曜　12:00-15:00 / 18:00-22:00\n水曜　12:00-15:00 / 18:00-22:00\n木曜　12:00-15:00 / 18:00-22:00\n金曜　12:00-15:00 / 18:00-22:00\n土曜　11:30-15:00 / 18:00-22:00\n日曜・祝日　11:30-15:00 / 18:00-22:00",
     businessHoursSource: "web_reference",
     phone: "072-998-3232",
     prefecture: "大阪府",
@@ -196,7 +197,7 @@ const FEATURED_CARDS = [
     isNewInDeck: false,
     hasVisited: true,
     visitedAt: "2026-08-11T00:00:00.000Z",
-    aiProcessed: true,
+    aiProcessed: false,
     creatorName: "kaki-palette",
     creatorId: "local-user",
     sharedWith: [],
@@ -204,8 +205,8 @@ const FEATURED_CARDS = [
   }
 ];
 
-const CARD_IMAGE_MAX_SIZE = 1400;
-const CARD_IMAGE_QUALITY = 0.82;
+const CARD_IMAGE_MAX_SIZE = 1100;
+const CARD_IMAGE_QUALITY = 0.76;
 
 let cards = [];
 let mapInstance = null;
@@ -466,8 +467,14 @@ function normalizeCard(card) {
   const areaProfile = getAreaProfile(card.area);
   const providedHours = typeof card.businessHours === "string" && card.businessHours.trim().length > 0;
   const position = normalizeCardPosition(card, areaProfile);
+  const imageUrls = Array.isArray(card.imageUrls)
+    ? card.imageUrls.filter(Boolean).slice(0, 3)
+    : [];
+  if (imageUrls.length === 0 && card.imageUrl) imageUrls.push(card.imageUrl);
   return {
     ...card,
+    imageUrl: imageUrls[0] || card.imageUrl || "assets/ramen.png",
+    imageUrls,
     prefecture: card.prefecture || areaProfile.prefecture,
     address: card.address || card.placeAddress || "",
     placeId: card.placeId || "",
@@ -490,7 +497,7 @@ function normalizeCard(card) {
     isNewInDeck: Boolean(card.isNewInDeck),
     hasVisited: Boolean(card.hasVisited),
     visitedAt: card.visitedAt || "",
-    aiProcessed: card.aiProcessed !== false,
+    aiProcessed: false,
     sharedWith: Array.isArray(card.sharedWith) ? card.sharedWith : [],
     acquiredAt: card.acquiredAt || new Date().toISOString()
   };
@@ -709,11 +716,6 @@ function isValidCoordinate(lat, lng) {
     && Number.isFinite(Number(lng))
     && Math.abs(Number(lat)) <= 90
     && Math.abs(Number(lng)) <= 180;
-}
-
-function formatLatLng(card) {
-  if (!isValidCoordinate(card.lat, card.lng)) return "";
-  return `${Number(card.lat).toFixed(5)}, ${Number(card.lng).toFixed(5)}`;
 }
 
 function getLocationSourceLabel(card) {
@@ -1030,11 +1032,57 @@ function getSafeImageUrl(value) {
   return "assets/ramen.png";
 }
 
+function getCardImageUrls(card) {
+  const candidates = Array.isArray(card.imageUrls) && card.imageUrls.length > 0
+    ? card.imageUrls
+    : [card.imageUrl];
+  return candidates.filter(Boolean).slice(0, 3).map(getSafeImageUrl);
+}
+
+function createPhotoGalleryHtml(card, safeTitleAttr) {
+  const imageUrls = getCardImageUrls(card);
+  const total = imageUrls.length;
+  return `
+    <div class="card-photo-gallery" aria-label="${safeTitleAttr}の写真 ${total}枚">
+      ${imageUrls.map((url, index) => `
+        <div class="card-photo-slide">
+          <img src="${escapeAttr(url)}" alt="${safeTitleAttr} ${index + 1}枚目">
+          ${total > 1 ? `<span class="photo-position">${index + 1} / ${total}</span>` : ""}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function getBusinessHoursLines(value) {
+  const sourceLines = String(value || "")
+    .split(/\r?\n|、/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  return sourceLines.flatMap(line => {
+    const weekdayRange = line.match(/^火(?:曜)?\s*[-〜～]\s*金(?:曜)?\s+(.+)$/);
+    if (weekdayRange) {
+      return ["火曜", "水曜", "木曜", "金曜"].map(day => `${day}　${weekdayRange[1]}`);
+    }
+    const weekend = line.match(/^土日祝\s+(.+)$/);
+    if (weekend) {
+      return ["土曜", "日曜・祝日"].map(day => `${day}　${weekend[1]}`);
+    }
+    return [line.replace(/^月曜?定休$/, "月曜　定休")];
+  });
+}
+
+function formatBusinessHoursHtml(value) {
+  return getBusinessHoursLines(value)
+    .map(line => `<span>${escapeHtml(line)}</span>`)
+    .join("");
+}
+
 // フリップ可能なカードHTML部品を生成する共通関数（店舗名表示追加）
 function createCardHtml(card, insideModal = false) {
   const isUnlocked = card.isUnlocked || card.isMyCard;
   const safeId = escapeAttr(card.id);
-  const safeImageUrl = escapeAttr(getSafeImageUrl(card.imageUrl));
   const safeTitle = escapeHtml(card.title);
   const safeTitleAttr = escapeAttr(card.title);
   const safeShopName = escapeHtml(card.shopName);
@@ -1044,32 +1092,11 @@ function createCardHtml(card, insideModal = false) {
   const safePrefecture = escapeHtml(card.prefecture);
   const safeAddress = escapeHtml(card.address);
   const safeCreator = escapeHtml(formatCreatorName(card.creatorName));
-  const safeHours = escapeHtml(card.businessHours);
+  const safeHoursHtml = formatBusinessHoursHtml(card.businessHours);
   const safeStory = escapeHtml(card.story || "");
   const safePhone = escapeHtml(card.phone || "");
   const safeReferenceUrl = escapeAttr(card.referenceUrl || "");
   const safeGoogleUrl = escapeAttr(getGoogleMapsUrl(card));
-  const imageClass = card.aiProcessed ? "sizzled" : "";
-  const steamHtml = card.aiProcessed
-    ? `
-          <div class="steam-container">
-            <div class="steam-line"></div>
-            <div class="steam-line"></div>
-            <div class="steam-line"></div>
-          </div>
-      `
-    : "";
-  const sparkleHtml = card.aiProcessed && card.isLimited
-    ? `
-            <div class="sparkle-container">
-              <div class="sparkle size-1"></div>
-              <div class="sparkle size-2"></div>
-              <div class="sparkle size-3"></div>
-              <div class="sparkle size-1"></div>
-              <div class="sparkle size-2"></div>
-            </div>
-      `
-    : "";
   const visitedBadgeHtml = card.hasVisited
     ? `<div class="card-visited-tag"><i class="fa-solid fa-circle-check"></i> 行った</div>`
     : "";
@@ -1087,7 +1114,7 @@ function createCardHtml(card, insideModal = false) {
       <!-- 表面 (Front) -->
       <div class="card-front">
         <div class="card-image-area">
-          <img class="${imageClass}" src="${safeImageUrl}" alt="${safeTitleAttr}">
+          ${createPhotoGalleryHtml(card, safeTitleAttr)}
           
           <!-- 【追加要望！】カード表面に店舗名を表示 -->
           <div class="card-shop-tag">
@@ -1098,10 +1125,6 @@ function createCardHtml(card, insideModal = false) {
           </div>
           ${visitedBadgeHtml}
 
-          <!-- 湯気エフェクト -->
-          ${steamHtml}
-          <!-- キラキラエフェクト (限定のみ) -->
-          ${sparkleHtml}
           ${card.isLimited ? `<div class="limited-badge"><i class="fa-solid fa-star"></i> LIMITED CARD</div>` : ''}
           <div class="card-comment-bubble">💬 「${safeComment}」</div>
         </div>
@@ -1111,7 +1134,6 @@ function createCardHtml(card, insideModal = false) {
             <div class="card-meta">
               <span class="card-tag">${safeGenre}</span>
               <span class="card-tag">${safeArea}</span>
-              <span class="card-tag">${card.aiProcessed ? 'AI加工' : '無加工'}</span>
             </div>
           </div>
           ${insideModal ? '' : `<div class="card-actions">${wantButtonHtml}${manualExchangeButtonHtml}</div>`}
@@ -1127,13 +1149,12 @@ function createCardHtml(card, insideModal = false) {
         <h3 class="shop-name">${safeShopName}</h3>
         <div class="shop-address"><i class="fa-solid fa-map-pin"></i> エリア: ${safePrefecture} ${safeArea} 地区</div>
         ${card.address ? `<div class="shop-address"><i class="fa-solid fa-location-dot"></i> ${safeAddress}</div>` : ''}
-        <div class="shop-address"><i class="fa-solid fa-crosshairs"></i> ${escapeHtml(formatLatLng(card))} / ${escapeHtml(getLocationSourceLabel(card))}</div>
         <div class="creator-note"><i class="fa-solid fa-copyright"></i> Original photo by ${safeCreator}</div>
         <div class="shop-hours">
           <i class="fa-solid fa-clock"></i>
           <div>
             <span>営業時間</span>
-            <strong>${safeHours}</strong>
+            <strong class="business-hours-list">${safeHoursHtml}</strong>
             <small>${getBusinessHoursSourceLabel(card)}</small>
           </div>
         </div>
@@ -1156,6 +1177,34 @@ function createCardHtml(card, insideModal = false) {
       </div>
     </div>
   `;
+}
+
+function bindCardFlipGesture(cardElement, onTap) {
+  let startX = 0;
+  let startY = 0;
+  let dragged = false;
+
+  cardElement.addEventListener("pointerdown", event => {
+    startX = event.clientX;
+    startY = event.clientY;
+    dragged = false;
+  });
+  cardElement.addEventListener("pointermove", event => {
+    if (Math.abs(event.clientX - startX) > 10 || Math.abs(event.clientY - startY) > 10) {
+      dragged = true;
+    }
+  });
+  cardElement.addEventListener("pointercancel", () => {
+    dragged = true;
+  });
+  cardElement.addEventListener("click", event => {
+    if (event.target.closest("button") || event.target.closest("a")) return;
+    if (dragged) {
+      dragged = false;
+      return;
+    }
+    onTap(event);
+  });
 }
 
 function renderTimeline() {
@@ -1185,9 +1234,7 @@ function renderTimeline() {
     cardEl.innerHTML = createCardHtml(card, false);
 
     // カードをタップしたら裏返す (wantボタンやリンクを直接押した時を除く)
-    cardEl.addEventListener("click", (e) => {
-      if (e.target.closest("button") || e.target.closest("a")) return;
-      
+    bindCardFlipGesture(cardEl, () => {
       if (!card.isUnlocked && !card.isMyCard) {
         unlockCard(card.id);
         const btn = cardEl.querySelector(".btn-want");
@@ -1355,7 +1402,7 @@ function unlockCard(id) {
     renderTimeline();
     renderCollection();
     showToast(PERSONAL_WEB_MODE
-      ? `📌 ${card.shopName} をグルメメモに保存しました！`
+      ? `${card.shopName} をお店リストに保存しました。`
       : (addedToDeck
         ? `🗝️ ${card.shopName} がアンロックされ、手持ちにも入りました！`
         : `🗝️ ${card.shopName} が図鑑に登録されました！`));
@@ -1687,7 +1734,7 @@ function openCollectionDetail(id) {
 
   // 初期状態で「裏面（店舗詳細）」を見せる演出（または表面でもOK。ここでは「反転して店舗情報が見える」という要望なので、表面から開始し、タップで反転するか、あるいは最初から裏面で見せてタップで表面に戻せるようにする。
   // ここでは最初は表面を見せ、ユーザーがタップしてフリップする楽しさを提供します）
-  detailCardEl.addEventListener("click", () => {
+  bindCardFlipGesture(detailCardEl, () => {
     detailCardEl.classList.toggle("flipped");
   });
 
@@ -2005,7 +2052,7 @@ function showMapPopupCard(card) {
   const safeGenre = escapeHtml(card.genre);
   const safeCreator = escapeHtml(formatCreatorName(card.creatorName));
   const safeAddress = escapeHtml(card.address);
-  const safeHours = escapeHtml(card.businessHours);
+  const safeHoursHtml = formatBusinessHoursHtml(card.businessHours);
   const safeGoogleUrl = escapeAttr(getGoogleMapsUrl(card));
   mapPopupCard.innerHTML = `
     <img class="map-card-img" src="${safeImageUrl}" alt="${safeTitleAttr}">
@@ -2014,7 +2061,7 @@ function showMapPopupCard(card) {
       <div class="map-card-shop">${safeShopName}</div>
       <div class="map-card-meta">${safeArea} 地区 · ${safeGenre} · 撮影 ${safeCreator}</div>
       ${card.address ? `<div class="map-card-address"><i class="fa-solid fa-location-dot"></i> ${safeAddress}</div>` : ''}
-      <div class="map-card-hours"><i class="fa-solid fa-clock"></i> ${safeHours}</div>
+      <div class="map-card-hours"><i class="fa-solid fa-clock"></i><span class="business-hours-list">${safeHoursHtml}</span></div>
       <div class="map-card-source"><i class="fa-solid fa-crosshairs"></i> ${escapeHtml(getLocationSourceLabel(card))}</div>
       ${card.hasVisited ? `<div class="map-card-visited"><i class="fa-solid fa-circle-check"></i> 実際に行った店</div>` : ''}
     </div>
@@ -2081,11 +2128,8 @@ const btnClosePost = document.getElementById("btn-close-post");
 const postModal = document.getElementById("post-modal");
 const postForm = document.getElementById("post-form");
 const postPreviewWrapper = document.getElementById("post-preview-wrapper");
-const postPreviewImg = document.getElementById("post-preview-img");
+const postPreviewGallery = document.getElementById("post-preview-gallery");
 const imageEmptyState = document.getElementById("image-empty-state");
-const previewSteam = document.getElementById("preview-steam");
-const previewSparkles = document.getElementById("preview-sparkles");
-const toggleSizzle = document.getElementById("toggle-sizzle");
 const toggleLimited = document.getElementById("toggle-limited");
 const postError = document.getElementById("post-error");
 
@@ -2099,7 +2143,7 @@ const postLngInput = document.getElementById("post-lng");
 const postLocationStatus = document.getElementById("post-location-status");
 const btnUseCurrentLocation = document.getElementById("btn-use-current-location");
 
-let selectedImagePath = "";
+let selectedImagePaths = [];
 
 // カメラ・ファイル選択トリガー
 btnTriggerUpload.addEventListener("click", () => {
@@ -2155,20 +2199,23 @@ async function prepareCardImage(file) {
 
 // ローカルファイル選択イベント（カメラで撮った画像/端末内画像の取り込み）
 postFileInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (file) {
+  const files = Array.from(e.target.files || []).slice(0, 3);
+  if (files.length > 0) {
     try {
-      showToast("📸 画像を取り込んでいます...");
-      selectedImagePath = await prepareCardImage(file);
-      postPreviewImg.src = selectedImagePath;
+      showToast(`画像${files.length}枚を取り込んでいます...`);
+      selectedImagePaths = await Promise.all(files.map(prepareCardImage));
+      postPreviewGallery.innerHTML = selectedImagePaths.map((path, index) => `
+        <div class="post-preview-item">
+          <img src="${escapeAttr(path)}" alt="選択した料理写真 ${index + 1}枚目">
+          <span>${index + 1} / ${selectedImagePaths.length}</span>
+        </div>
+      `).join("");
       postPreviewWrapper.classList.remove("empty");
       imageEmptyState.style.display = "none";
-      previewSteam.style.display = toggleSizzle.checked ? "block" : "none";
-      previewSparkles.style.display = toggleSizzle.checked && toggleLimited.checked ? "block" : "none";
-
-      showToast("📸 画像を軽量化して取り込みました！");
+      showToast(`写真${selectedImagePaths.length}枚を取り込みました。`);
     } catch (error) {
-      selectedImagePath = "";
+      selectedImagePaths = [];
+      postPreviewGallery.innerHTML = "";
       postFileInput.value = "";
       showToast(error.message || "画像を取り込めませんでした。");
     }
@@ -2178,14 +2225,11 @@ postFileInput.addEventListener("change", async (e) => {
 // 開く・閉じる
 btnOpenPost.addEventListener("click", () => {
   postForm.reset();
-  selectedImagePath = "";
+  selectedImagePaths = [];
   postFileInput.value = ""; // ファイル選択クリア
-  postPreviewImg.removeAttribute("src");
+  postPreviewGallery.innerHTML = "";
   postPreviewWrapper.classList.add("empty");
   imageEmptyState.style.display = "flex";
-  postPreviewImg.className = "sizzled";
-  previewSteam.style.display = "none";
-  previewSparkles.style.display = "none";
   postError.style.display = "none";
   if (postAreaInput) postAreaInput.value = "場所から自動判定";
   setPostLocationStatus("未入力なら、無料の場所検索で候補を探します。");
@@ -2195,28 +2239,6 @@ btnOpenPost.addEventListener("click", () => {
 
 btnClosePost.addEventListener("click", () => {
   postModal.classList.remove("show");
-});
-
-// AIシズル感トグル
-toggleSizzle.addEventListener("change", (e) => {
-  if (e.target.checked) {
-    postPreviewImg.classList.add("sizzled");
-    previewSteam.style.display = selectedImagePath ? "block" : "none";
-    previewSparkles.style.display = selectedImagePath && toggleLimited.checked ? "block" : "none";
-  } else {
-    postPreviewImg.classList.remove("sizzled");
-    previewSteam.style.display = "none";
-    previewSparkles.style.display = "none";
-  }
-});
-
-// 限定フラグトグル
-toggleLimited.addEventListener("change", (e) => {
-  if (e.target.checked && toggleSizzle.checked && selectedImagePath) {
-    previewSparkles.style.display = "block";
-  } else {
-    previewSparkles.style.display = "none";
-  }
 });
 
 function setPostLocationStatus(message) {
@@ -2345,7 +2367,7 @@ postForm.addEventListener("submit", async (e) => {
   const genre = document.getElementById("post-genre").value;
   const comment = document.getElementById("post-comment").value.trim();
 
-  if (!selectedImagePath) {
+  if (selectedImagePaths.length === 0) {
     postError.innerHTML = `📸 <strong>料理写真を選択してください。</strong><br>プリセットではなく、撮影した写真や端末内の料理写真を使います。`;
     postError.style.display = "block";
     return;
@@ -2365,7 +2387,8 @@ postForm.addEventListener("submit", async (e) => {
 
   const newCard = {
     id: Date.now().toString(),
-    imageUrl: selectedImagePath,
+    imageUrl: selectedImagePaths[0],
+    imageUrls: [...selectedImagePaths],
     title: title,
     comment: comment,
     shopName: shop,
@@ -2379,7 +2402,7 @@ postForm.addEventListener("submit", async (e) => {
     lng: position.lng,
     locationSource: position.source,
     isLimited: toggleLimited.checked,
-    aiProcessed: toggleSizzle.checked,
+    aiProcessed: false,
     creatorName: "あなた",
     creatorId: "local-user",
     isUnlocked: true, // 自分の投稿はアンロック済み
@@ -2408,7 +2431,7 @@ postForm.addEventListener("submit", async (e) => {
   postModal.classList.remove("show");
   
   showToast(PERSONAL_WEB_MODE
-    ? "🎉 新しいグルメメモを追加しました！"
+    ? "新しいお店を追加しました。"
     : (enteredDeck
       ? "🎉 新しい料理カードが図鑑と手持ちに追加されました！"
       : "🎉 新しい料理カードが図鑑に追加されました！"));

@@ -400,8 +400,43 @@ body {
 
 .card-image-area {
   flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
+}
+
+.card-photo-gallery {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+.card-photo-gallery::-webkit-scrollbar {
+  display: none;
+}
+.card-photo-slide {
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  scroll-snap-align: start;
+}
+.photo-position {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.66);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .card-image-area img {
@@ -409,11 +444,6 @@ body {
   height: 100%;
   object-fit: cover;
   transition: filter 0.4s ease;
-}
-
-/* AIシズル感ブースト用フィルタ */
-.card-image-area img.sizzled {
-  filter: contrast(1.25) saturate(1.35) brightness(1.05);
 }
 
 /* 期間限定の金フレーム */
@@ -696,7 +726,7 @@ body {
   flex-direction: column;
   gap: 2px;
 }
-.shop-hours span,
+.shop-hours > div > span:first-child,
 .shop-hours small {
   color: var(--text-muted);
   font-size: 9px;
@@ -705,6 +735,16 @@ body {
   color: #fff;
   font-size: 12px;
   line-height: 1.3;
+}
+.business-hours-list {
+  display: grid;
+  gap: 4px;
+}
+.business-hours-list span {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 .visited-note {
   margin: -4px 0 12px 0;
@@ -816,100 +856,6 @@ body {
   align-items: center;
   gap: 8px;
   text-decoration: none;
-}
-
-/* ==========================================================================
-   湯気（Steam）アニメーション
-   ========================================================================== */
-.steam-container {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 4;
-  overflow: hidden;
-}
-.steam-line {
-  position: absolute;
-  bottom: 10%;
-  width: 30px;
-  height: 100px;
-  background: radial-gradient(ellipse at center, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 70%);
-  filter: blur(8px);
-  opacity: 0;
-}
-.steam-line:nth-child(1) {
-  left: 25%;
-  animation: riseSteam 4s infinite 0s;
-}
-.steam-line:nth-child(2) {
-  left: 50%;
-  animation: riseSteam 4s infinite 1.3s;
-}
-.steam-line:nth-child(3) {
-  left: 75%;
-  animation: riseSteam 4s infinite 2.6s;
-}
-
-@keyframes riseSteam {
-  0% {
-    transform: translateY(20px) scaleX(0.7) translateX(0);
-    opacity: 0;
-  }
-  15% {
-    opacity: 0.8;
-  }
-  50% {
-    transform: translateY(-80px) scaleX(1.3) translateX(15px);
-    opacity: 0.4;
-  }
-  100% {
-    transform: translateY(-200px) scaleX(1.8) translateX(-10px);
-    opacity: 0;
-  }
-}
-
-/* ==========================================================================
-   限定キラキラ（Sparkle）アニメーション
-   ========================================================================== */
-.sparkle-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 4;
-}
-.sparkle {
-  position: absolute;
-  background: #fff;
-  clip-path: polygon(50% 0%, 65% 35%, 100% 50%, 65% 65%, 50% 100%, 35% 65%, 0% 50%, 35% 35%);
-  opacity: 0;
-  animation: flickerSparkle 3s infinite;
-}
-
-.sparkle.size-1 { width: 14px; height: 14px; }
-.sparkle.size-2 { width: 10px; height: 10px; }
-.sparkle.size-3 { width: 7px; height: 7px; }
-
-.sparkle:nth-child(1) { top: 20%; left: 15%; animation-delay: 0.2s; }
-.sparkle:nth-child(2) { top: 15%; left: 80%; animation-delay: 0.8s; }
-.sparkle:nth-child(3) { top: 70%; left: 20%; animation-delay: 1.4s; }
-.sparkle:nth-child(4) { top: 65%; left: 85%; animation-delay: 2s; }
-.sparkle:nth-child(5) { top: 40%; left: 50%; animation-delay: 0.5s; }
-
-@keyframes flickerSparkle {
-  0%, 100% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
 }
 
 @keyframes bounce {
@@ -1760,9 +1706,11 @@ body {
 .map-card-hours {
   color: var(--text-muted);
   font-size: 9px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  max-height: 58px;
+  overflow-y: auto;
 }
 .map-card-hours i {
   color: var(--secondary-color);
@@ -2008,13 +1956,38 @@ body {
   border: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.04);
 }
-.image-preview-wrapper img {
+.post-preview-gallery {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.post-preview-gallery::-webkit-scrollbar {
+  display: none;
+}
+.post-preview-item {
+  position: relative;
+  flex: 0 0 100%;
+  height: 100%;
+  scroll-snap-align: start;
+}
+.post-preview-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.image-preview-wrapper.empty img {
-  display: none;
+.post-preview-item span {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
 }
 .image-empty-state {
   position: absolute;
@@ -2033,10 +2006,6 @@ body {
   color: var(--primary-color);
   font-size: 28px;
 }
-.image-preview-wrapper img.sizzled {
-  filter: contrast(1.25) saturate(1.35) brightness(1.05);
-}
-
 /* 横並びスイッチ用グループ */
 .row-group {
   flex-direction: row;

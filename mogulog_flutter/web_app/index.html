@@ -27,7 +27,7 @@
   <div class="device-wrapper">
     <div class="device-screen">
       
-      <!-- 旧スマホ表示用ステータスバー（Web版ではCSSで非表示） -->
+      <!-- 旧スマホ表示用ステータスバー（現在はCSSで非表示） -->
       <div class="status-bar">
         <span class="time">9:41</span>
         <div class="status-icons">
@@ -46,28 +46,19 @@
             <span>My Gourmet Notes</span>
           </div>
         </div>
-        <div class="header-meta">
-          <span><i class="fa-solid fa-desktop"></i> Web版</span>
-          <span id="sync-status" class="sync-status local"><i class="fa-solid fa-cloud-arrow-up"></i> ローカル保存</span>
-          <span><i class="fa-solid fa-mobile-screen"></i> アプリ化設定は保管中</span>
-        </div>
       </header>
 
       <!-- 画面コンテンツエリア -->
       <main class="app-content">
         
-        <!-- 1. グルメメモ画面 -->
+        <!-- 1. お店共有画面 -->
         <section id="screen-timeline" class="app-screen active">
           <div class="timeline-header">
-            <div>
-              <h2>グルメメモ</h2>
-              <p>好きな店、行きたい店、実際に行った店を自分用に育てる場所です。</p>
-            </div>
             <span id="timeline-count" class="timeline-count">0件</span>
           </div>
-          <section class="memo-dashboard" aria-label="グルメメモ概要">
+          <section class="memo-dashboard" aria-label="共有しているお店の概要">
             <div class="memo-stat-card">
-              <span>メモ</span>
+              <span>掲載店</span>
               <strong id="stat-total-cards">0</strong>
             </div>
             <div class="memo-stat-card visited">
@@ -211,7 +202,7 @@
       <nav class="bottom-nav">
         <button class="nav-item active" data-screen="timeline">
           <i class="fa-solid fa-note-sticky"></i>
-          <span>メモ</span>
+          <span>共有</span>
         </button>
         <button class="nav-item" data-screen="collection">
           <i class="fa-solid fa-box-archive"></i>
@@ -239,48 +230,25 @@
             <form id="post-form">
               <!-- 画像選択とプレビュー -->
               <div class="form-group image-picker-group">
-                <label>料理写真を選択・撮影</label>
+                <label>料理写真を選択・撮影（最大3枚）</label>
                 
                 <!-- 【追加！】本物のファイルアップロード/カメラ呼び出し用ボタン -->
                 <div class="file-upload-actions">
                   <button type="button" class="btn-action-upload" id="btn-trigger-upload">
-                    <i class="fa-solid fa-image-portrait"></i> 写真を選択 / 撮影する
+                    <i class="fa-solid fa-image-portrait"></i> 写真を1〜3枚選択 / 撮影する
                   </button>
-                  <input type="file" id="post-file-input" accept="image/*" style="display: none;">
+                  <input type="file" id="post-file-input" accept="image/*" multiple style="display: none;">
                 </div>
 
                 <!-- プレビュー -->
                 <div class="image-preview-wrapper empty" id="post-preview-wrapper">
-                  <img id="post-preview-img" alt="Preview">
+                  <div class="post-preview-gallery" id="post-preview-gallery"></div>
                   <div class="image-empty-state" id="image-empty-state">
                     <i class="fa-solid fa-camera-retro"></i>
-                    <span>撮影した料理写真を選択してください</span>
-                  </div>
-                  <!-- 湯気エフェクトシミュレータ -->
-                  <div class="steam-container" id="preview-steam">
-                    <div class="steam-line"></div>
-                    <div class="steam-line"></div>
-                    <div class="steam-line"></div>
-                  </div>
-                  <!-- キラキラエフェクト -->
-                  <div class="sparkle-container" id="preview-sparkles" style="display: none;">
-                    <div class="sparkle size-1"></div>
-                    <div class="sparkle size-2"></div>
-                    <div class="sparkle size-3"></div>
-                    <div class="sparkle size-1"></div>
-                    <div class="sparkle size-2"></div>
+                    <span>撮影した料理写真を最大3枚選択してください</span>
                   </div>
                 </div>
-              </div>
-
-              <!-- AI加工トグル -->
-              <div class="form-group row-group">
-                <label for="toggle-sizzle">AIシズル感加工を適用</label>
-                <label class="switch">
-                  <input type="checkbox" id="toggle-sizzle" checked>
-                  <span class="slider round"></span>
-                </label>
-                <p class="form-help">OFFにすると、写真はシズル加工なしの無加工カードとして登録されます。</p>
+                <p class="form-help">複数選ぶと、カード表面を左右にスワイプして写真を見られます。</p>
               </div>
 
               <!-- 限定トグル -->
@@ -320,17 +288,15 @@
                     <i class="fa-solid fa-location-crosshairs"></i> 今いる場所を使う
                   </button>
                 </div>
-                <div class="form-row compact">
-                  <input type="number" id="post-lat" step="0.000001" placeholder="緯度">
-                  <input type="number" id="post-lng" step="0.000001" placeholder="経度">
-                </div>
+                <input type="hidden" id="post-lat">
+                <input type="hidden" id="post-lng">
                 <p class="form-help" id="post-location-status">未入力なら、無料の場所検索で候補を探します。</p>
               </div>
 
               <!-- 営業時間 -->
               <div class="form-group">
                 <label for="post-hours">営業時間（空欄ならGoogle Mapsから自動補完）</label>
-                <input type="text" id="post-hours" placeholder="例: 11:00-15:00 / 17:00-22:00">
+                <textarea id="post-hours" rows="4" placeholder="例：&#10;月曜　定休&#10;火曜　11:00-15:00 / 17:00-22:00"></textarea>
                 <p class="form-help">入力を忘れても、試作版では店舗名・エリアからGoogle Maps情報を想定して自動で補完します。</p>
               </div>
 
